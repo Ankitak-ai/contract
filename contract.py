@@ -1,121 +1,111 @@
 import streamlit as st
 from fpdf import FPDF
 from datetime import datetime
+from streamlit_drawable_canvas import st_canvas
+from PIL import Image
+import io
 
-# App Title
+st.set_page_config(page_title="HyperChat Streamer Contract", layout="centered")
 st.title("📄 HyperChat Streamer Contract")
 
-# Streamer Input Form
+# Streamer Info Form
 st.header("🎮 Streamer Information")
 streamer_name = st.text_input("Full Name")
 streamer_email = st.text_input("Email or Channel Handle")
 split_x = st.number_input("Streamer Revenue Share (%)", min_value=0, max_value=100, value=80)
 split_y = 100 - split_x
-
 agreed = st.checkbox("I agree to the terms and conditions below")
 
-# Display contract preview
-st.header("📜 Contract Preview")
+st.header("✍️ Signature")
+st.write("Draw your signature below:")
+
+# Signature pad
+canvas_result = st_canvas(
+    fill_color="rgba(0, 0, 0, 0)",
+    stroke_width=2,
+    stroke_color="#000000",
+    background_color="#FFFFFF",
+    height=150,
+    drawing_mode="freedraw",
+    key="signature",
+)
+
+# Capture current date
 agreement_date = datetime.now().strftime("%Y-%m-%d")
 
+# Contract Preview
 if streamer_name and streamer_email:
+    st.header("📜 Contract Preview")
     st.markdown(f"""
-    **This Agreement** is made on **{agreement_date}** between:
+    **Agreement Date**: {agreement_date}
 
-    **HyperChat Technologies Pvt. Ltd.**, a registered MSME under Udyam Registration No. **UP29D0047796**, with its principal office at **Ghaziabad**,  
-    and  
-    **{streamer_name}**, identified by email/channel: **{streamer_email}**.
+    **Parties**:  
+    - **HyperChat Technologies Pvt. Ltd.**, Udyam No. **UP29D0047796**, Ghaziabad  
+    - **Streamer**: **{streamer_name}** ({streamer_email})
 
-    ---  
+    **Revenue Sharing**:  
+    - {split_x}% to Streamer  
+    - {split_y}% to HyperChat
 
-    ### Terms & Conditions
+    **Key Terms**:  
+    1. Use HyperChat to engage fans responsibly.  
+    2. Respectful behavior required.  
+    3. Agreement can be terminated with 7 days’ notice.  
+    4. Governed by Indian law.  
 
-    1. **Purpose**  
-       HyperChat provides a fan engagement and donation tool for live streamers.
-
-    2. **Access Rights**  
-       The Streamer is granted a non-transferable license to use HyperChat during live streams.
-
-    3. **Responsibilities**  
-       The Streamer agrees to use HyperChat responsibly and maintain a positive environment.
-
-    4. **Revenue Split**  
-       - {split_x}% to the Streamer  
-       - {split_y}% to HyperChat (as platform fee)
-
-    5. **Intellectual Property**  
-       HyperChat retains rights to its platform and branding. Streamer owns their content.
-
-    6. **Termination**  
-       This agreement may be ended by either party with 7 days’ notice.
-
-    7. **Confidentiality**  
-       The Streamer will not disclose private information about HyperChat.
-
-    8. **Governing Law**  
-       This Agreement is governed by the laws of India.
-
-    ---
-
-    **Signed by:**  
-    _Ankit Kumar_, Founder, HyperChat Technologies Pvt. Ltd.  
-    **Streamer:** {streamer_name}
+    **Signed by**:  
+    - Ankit Kumar, Founder, HyperChat  
+    - {streamer_name}
     """)
 
-# Generate PDF if agreed
+# Generate PDF
 if agreed and st.button("Generate & Download PDF"):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("Arial", size=12)
+    pdf.set_auto_page_break(auto=True, margin=15)
 
-    contract = f"""
+    contract_text = f"""
 HyperChat Streamer Agreement
 
-This Agreement is made on {agreement_date} between:
+Date: {agreement_date}
 
-HyperChat Technologies Pvt. Ltd., Udyam Registration No. UP29D0047796,
-with its principal office at Ghaziabad,
+This Agreement is made between:
+HyperChat Technologies Pvt. Ltd., Udyam No. UP29D0047796, Ghaziabad
 and
 {streamer_name}, identified by {streamer_email}.
 
-1. PURPOSE
-HyperChat provides a fan engagement and donation tool for live streamers.
+Revenue Share:
+- {split_x}% to Streamer
+- {split_y}% to HyperChat
 
-2. GRANT OF ACCESS
-Streamer is licensed to use HyperChat’s services during live streams.
+Streamer agrees to responsible use of HyperChat and the terms above.
+Agreement may be terminated with 7 days' notice.
+Governing Law: India.
 
-3. RESPONSIBILITIES
-Streamer agrees to maintain a respectful environment and use HyperChat responsibly.
-
-4. REVENUE SHARING
-- {split_x}% to the Streamer
-- {split_y}% to HyperChat as platform fee
-
-5. INTELLECTUAL PROPERTY
-HyperChat retains all rights to its platform. Streamers retain rights to their content.
-
-6. TERM & TERMINATION
-Either party may terminate this agreement with 7 days' notice.
-
-7. CONFIDENTIALITY
-Streamer agrees not to disclose confidential information.
-
-8. GOVERNING LAW
-This Agreement is governed by the laws of India.
-
-Signed by:
+Signed:
 Ankit Kumar, Founder, HyperChat Technologies Pvt. Ltd.
 Streamer: {streamer_name}
-Date: {agreement_date}
 """
 
-    for line in contract.split("\n"):
+    for line in contract_text.split("\n"):
         pdf.multi_cell(0, 10, line.strip())
 
+    # Add signature if present
+    if canvas_result.image_data is not None:
+        # Convert canvas image to PIL and save to PDF
+        image = Image.fromarray((canvas_result.image_data[:, :, :3]).astype("uint8"))
+        img_io = io.BytesIO()
+        image.save(img_io, format='PNG')
+        img_io.seek(0)
+
+        pdf.image(img_io, x=10, y=pdf.get_y() + 10, w=60)
+        pdf.ln(50)
+
+    # Save and offer download
     pdf_file = f"{streamer_name.replace(' ', '_')}_HyperChat_Contract.pdf"
     pdf.output(pdf_file)
 
     with open(pdf_file, "rb") as f:
-        st.download_button("📥 Download Signed PDF", f, file_name=pdf_file)
+        st.download_button("📥 Download Signed Contract", f, file_name=pdf_file)
 
